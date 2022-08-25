@@ -1,2 +1,2 @@
-# Sudanese_revelution
+# Sudanese-Revelation
 Sudanese Revelation
