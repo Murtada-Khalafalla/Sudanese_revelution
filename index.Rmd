@@ -1,0 +1,458 @@
+---
+title: "شهداء الثورة السودانية فى الفترة من 2021 - 2022"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+---
+
+```{r setup, include=FALSE}
+pacman::p_load('dplyr', 'tidyr', 'tidyverse','ggplot2','ggalt','forcats', 'R.utils', 'png', 'grid',
+               'ggpubr','bbplot','readxl',  'finalfit','DT','plotly',
+               'lubridate',    # general package for handling and converting dates  
+               'rio',          # File import
+               'skimr',        # get overview of data
+               'gtsummary',    # summary statistics and tests
+               'rstatix',      # summary statistics and statistical tests
+               'janitor',      # adding totals and percents to tables
+               'scales',       # easily convert proportions to percents  
+               'flextable',    # converting tables to pretty images
+               'gridExtra','patchwork','hrbrthemes','flexdashboard','highcharter')
+
+options(warn = - 1)
+```
+```{r}
+#-----bbc_style------------------------------------------
+bbc_style <- function ()
+{
+  font <- "Helvetica"
+  ggplot2::theme(plot.title = ggplot2::element_text(family = font,
+                                                    size = 15, face = "bold", color = "#222222"), plot.subtitle = ggplot2::element_text(family = font,
+                                                                                                                                        size = 10, margin = ggplot2::margin(9, 0, 9, 0)), plot.caption = ggplot2::element_blank(),
+                 legend.position = "top", legend.text.align = 0, legend.background = ggplot2::element_blank(),
+                 legend.title = ggplot2::element_blank(), legend.key = ggplot2::element_blank(),
+                 legend.text = ggplot2::element_text(family = font, size = 10,
+                                                     color = "#222222"), axis.title = ggplot2::element_blank(),
+                 axis.text = ggplot2::element_text(family = font, size = 10,
+                                                   color = "#222222"), axis.text.x = ggplot2::element_text(margin = ggplot2::margin(5,
+                                                                                                                                    b = 10)), axis.ticks = ggplot2::element_blank(),
+                 axis.line = ggplot2::element_blank(), panel.grid.minor = ggplot2::element_blank(),
+                 panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
+                 panel.grid.major.x = ggplot2::element_blank(), panel.background = ggplot2::element_blank(),
+                 strip.background = ggplot2::element_rect(fill = "white"),
+                 strip.text = ggplot2::element_text(size = 10, hjust = 0))
+}
+```
+
+```{r}
+sud_rev <- import("C:/Users/kfmurtada/Desktop/Sudanese_revelution/data/Sudanese_rev.xlsx")
+
+sud_rev <- sud_rev |> 
+  mutate(across(where(is.character), as.factor)) |>
+  janitor::clean_names() |> 
+  mutate(date = as.POSIXct(date_of_death, format = "%m/%d/%Y %H:%M:%S")) |> 
+  mutate(day_death =factor(day(date))) |> 
+  mutate(month_death = factor(month(date, label = TRUE))) |> 
+  mutate(year_death =factor(year(date))) |> 
+  mutate(week_death = factor(wday(date, label = TRUE))) |> 
+  mutate(ageGrouped = factor(cut(age, 
+                          breaks = c(0, 10, 20, 30, 40,50,60,70),
+                          labels = c("Under 10", "10-20", "20-30",
+                                     "30-40","40-50","50-60","60-70")))) |> 
+  select(name,gender,age,ageGrouped,city,place_of_death,reason_of_death,
+         date_death=date,day_death,week_death,month_death,year_death)
+```
+
+```{r}
+ max_gender_df <-  sud_rev |> 
+    count(gender, sort = TRUE) |>  
+    pivot_wider(names_from = gender, values_from = n) |> 
+    summarise(max_male=sum(Male), 
+              max_femal=sum(Female)) 
+```
+
+الشهداء من الذكور والاناث
+=====================================  
+Row
+-----------------------------------------------------------------------
+
+### المجموع الكلى للشهداء:
+
+```{r}
+valueBox(nrow(sud_rev),  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الذكور:
+
+```{r}
+valueBox(max_gender_df$max_male,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الاناث:
+
+```{r}
+valueBox(max_gender_df$max_femal,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+Row
+-------------------------------------
+    
+### عدد الشهداء حسب الاعمار من الذكور والاناث
+    
+```{r}
+gender_bar <- sud_rev  |> 
+  count(gender, sort = TRUE) |>  
+  dplyr::mutate(perc = scales::percent(n / sum(n), accuracy = .1, trim = FALSE)) |> 
+  rename(Gender=gender) |> 
+  hchart('bar',hcaes(Gender,n)) |> 
+  hc_title(text = "") |> 
+  hc_subtitle(text = "")  |>  
+  hc_xAxis(title = list(text = "")) |> 
+  hc_yAxis(title = list(text = "")) |> 
+  #hc_add_theme(hc_theme_economist())
+  hc_add_theme(hc_theme_538())
+
+gender_bar
+```
+ 
+### النسبة المئوية لعدد الشهداء حسب النوع والجنس
+    
+```{r}
+gender_pie <- sud_rev  |>
+  count(gender, sort = TRUE) |>
+  dplyr::mutate(perc = scales::percent(n / sum(n), accuracy = .1, trim = FALSE)) |>
+  plot_ly(labels = ~ gender,
+          values = ~ n) %>%
+  add_pie(hole = 0.6)
+
+gender_pie
+``` 
+
+Row
+-------------------------------------
+    
+### الشهداء حسب الاعمار
+    
+```{r}
+age_bar <- sud_rev  |> 
+  count(ageGrouped, sort = TRUE) |> 
+  hchart("bar", hcaes(x = ageGrouped, y = n))  |> 
+  hc_title(text = "") |> 
+  hc_xAxis(title = list(text = "")) |> 
+  hc_yAxis(title = list(text = "")) |> 
+  #hc_add_theme(hc_theme_economist())
+  hc_add_theme(hc_theme_538())
+age_bar
+```
+    
+### مجموع الشهداء حسب الأعمار فى الجنسين
+
+```{r}
+gender_age_bar<- sud_rev |> 
+  count(gender,ageGrouped)  |> 
+  hchart("bar", hcaes(x = ageGrouped, y = n, group=gender))  |> 
+  hc_title(text = "") |> 
+  hc_xAxis(title = list(text = "")) |> 
+  hc_yAxis(title = list(text = "")) |> 
+  hc_add_theme(hc_theme_538())
+  #hc_add_theme(hc_theme_economist())
+
+gender_age_bar
+
+```
+
+الشهداءحسب المدن والمناطق
+=====================================  
+Row
+-----------------------------------------------------------------------
+
+### المجموع الكلى للشهداء:
+
+```{r}
+valueBox(nrow(sud_rev),  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الذكور:
+
+```{r}
+valueBox(max_gender_df$max_male,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الاناث:
+
+```{r}
+valueBox(max_gender_df$max_femal,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+Row
+-------------------------------------
+    
+### الشهداءحسب المدن والمناطق 
+    
+```{r}
+tree_city_df <- sud_rev %>% 
+    count(city, place_of_death,sort = TRUE) %>%
+    mutate(parents = city) %>%
+    ungroup() 
+  
+  tree_city_place <- plot_ly(data = tree_city_df %>% filter(city == "ام درمان"),
+                             labels = ~ place_of_death, 
+                             values = ~ n,
+                             type = "treemap",
+                             parents=  ~city,
+                             domain = list(row=0),
+                             name = "ام درمان",
+                             textinfo="label+value+percent parent") |> 
+    add_trace(data = tree_city_df %>% filter(city == "الخرطوم"),
+              labels = ~ place_of_death, 
+              values = ~ n,
+              type = "treemap",
+              parents=  ~city,
+              domain = list(row=1),
+              name = "الخرطوم",
+              textinfo="label+value+percent parent")  |> 
+    add_trace(data = tree_city_df %>% filter(city == "الخرطوم بحري"),
+              labels = ~ place_of_death, 
+              values = ~ n,
+              type = "treemap",
+              parents=  ~city,
+              domain = list(row=2),
+              name = "الخرطوم بحري",
+              textinfo="label+value+percent parent")  |> 
+    add_trace(data = sud_rev %>% filter(city == "مدنى"),
+              labels = ~ place_of_death, 
+              values = ~ n,
+              type = "treemap",
+              parents=  ~city,
+              domain = list(row=3),
+              name = "مدنى",
+              textinfo="label+value+percent parent")  |>
+    layout(title = "",
+           grid=list(columns=1, rows=3))
+  
+  tree_city_place
+```
+
+أسباب القتل
+=====================================  
+Row
+-----------------------------------------------------------------------
+
+### المجموع الكلى للشهداء:
+
+```{r}
+valueBox(nrow(sud_rev),  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الذكور:
+
+```{r}
+valueBox(max_gender_df$max_male,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الاناث:
+
+```{r}
+valueBox(max_gender_df$max_femal,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+Row
+-------------------------------------
+
+### أسباب القتل
+    
+```{r}
+reason_of_death_bar <- sud_rev |>
+  count(reason_of_death,sort=TRUE) |>
+  mutate(reason_of_death = factor(reason_of_death, levels = reason_of_death)) |>
+  hchart("bar", hcaes(x = reason_of_death, y = n))  |>
+  hc_title(text = "") |>
+  hc_xAxis(title = list(text = "")) |>
+  hc_yAxis(title = list(text = "")) |>
+  hc_add_theme(hc_theme_538())
+reason_of_death_bar
+```
+
+الشهداء حسب السنين والشهور
+=====================================  
+Row
+-----------------------------------------------------------------------
+
+### المجموع الكلى للشهداء:
+
+```{r}
+valueBox(nrow(sud_rev),  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الذكور:
+
+```{r}
+valueBox(max_gender_df$max_male,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الاناث:
+
+```{r}
+valueBox(max_gender_df$max_femal,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+Row
+-------------------------------------
+    
+### مجموع الوفيات فى الفترة من 2021 - 2022
+    
+```{r}
+# ----------------------Death per Time-------------------------------------------
+# 1- month per year
+death_per_month_bar<-  sud_rev |> 
+  count(month_death,year_death, sort = T) |> 
+  hchart("column", hcaes(x = month_death, y = n,group=year_death))  |>
+  hc_title(text = "") |> 
+  hc_xAxis(title = list(text = "")) |> 
+  hc_yAxis(title = list(text = "")) |> 
+ hc_add_theme(hc_theme_538())
+death_per_month_bar
+
+```
+
+### مجموع الوفيات بالاسابيع لسنة 2021 
+    
+```{r}
+death_per_weeks_bar_2021 <-  sud_rev |> 
+  filter(year_death==2021) |>
+  count(week_death,month_death,year_death, sort = T) |> 
+  hchart("column", hcaes(x = week_death, y = n,group=month_death))  |>
+  hc_title(text = "") |> 
+  hc_xAxis(title = list(text = "")) |> 
+  hc_yAxis(title = list(text = "")) |> 
+  hc_add_theme(hc_theme_538())
+  death_per_weeks_bar_2021
+``` 
+
+###  مجموع الوفيات بالايام لسنة 2021
+
+```{r}
+death_per_day_bar_2021 <-   sud_rev |> 
+  filter(year_death==2021) |>
+  count(day_death,month_death ,week_death,year_death, sort = T) |> 
+  hchart("column", hcaes(x = day_death, y = n,group=week_death))  |>
+  hc_title(text = "") |> 
+  hc_xAxis(title = list(text = "")) |> 
+  hc_yAxis(title = list(text = "")) |> 
+  hc_add_theme(hc_theme_538())
+death_per_day_bar_2021
+  
+```
+Row
+-------------------------------------
+    
+###  مجموع الوفيات بالاسابيع لسنة 2022
+    
+```{r}
+death_per_weeks_bar_2022 <-  sud_rev |> 
+  filter(year_death==2022) |>
+  count(week_death,month_death,year_death, sort = T) |> 
+  hchart("column", hcaes(x = week_death, y = n,group=month_death))  |>
+  hc_title(text = "") |> 
+  hc_xAxis(title = list(text = "")) |> 
+  hc_yAxis(title = list(text = "")) |> 
+  hc_add_theme(hc_theme_538())
+  death_per_weeks_bar_2022
+```
+
+###  مجموع الوفيات بالايام لسنة 2022
+
+```{r}
+death_per_day_bar_2022 <-   sud_rev |> 
+  filter(year_death==2022) |>
+  count(day_death,month_death ,week_death,year_death, sort = T) |> 
+  hchart("column", hcaes(x = day_death, y = n,group=week_death))  |>
+  hc_title(text = "") |> 
+  hc_xAxis(title = list(text = "")) |> 
+  hc_yAxis(title = list(text = "")) |> 
+  hc_add_theme(hc_theme_538())
+death_per_day_bar_2022
+  
+```
+
+توزيع السلسلة الزمنية للوفيات
+=====================================  
+Row
+-----------------------------------------------------------------------
+
+### المجموع الكلى للشهداء:
+
+```{r}
+valueBox(nrow(sud_rev),  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الذكور:
+
+```{r}
+valueBox(max_gender_df$max_male,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+### مجموع الشهداء من الاناث:
+
+```{r}
+valueBox(max_gender_df$max_femal,  icon = "fas fa-heart-broken", 
+           color = "red")
+```
+
+Row
+-------------------------------------
+
+```{r}
+### توزيع السلسلة الزمنية للوفيات خلال السنين 2021- 2022 
+# Line_all_years  <- sud_rev |> 
+#   count(month_death,year_death) |> 
+#   hchart("line", hcaes(x = month_death, y = n, group = year_death)) %>%
+#   hc_title(text = " ") |> 
+#   hc_xAxis(title = list(text = "")) |> 
+#   hc_yAxis(title = list(text = "")) |> 
+#   hc_add_theme(hc_theme_538())
+# Line_all_years
+```
+### الوفيات خلال سنة 2021 
+```{r}
+# ----------------------Death per Time-------------------------------------------
+#1- month per year
+line_2021  <- sud_rev |>
+  filter(year_death==2021) |>
+  count(month_death) |>
+  hchart("line", hcaes(x = month_death, y = n)) %>%
+  hc_title(text = " ") |>
+  hc_xAxis(title = list(text = "")) |>
+  hc_yAxis(title = list(text = "")) |>
+  hc_add_theme(hc_theme_538())
+line_2021
+```
+
+### الوفيات خلال سنة 2022 
+
+```{r}
+# ----------------------Death per Time-------------------------------------------
+# # 1- month per year
+line_2022  <- sud_rev |>
+  filter(year_death==2022) |>
+  count(month_death) |>
+  hchart("line", hcaes(x = month_death, y = n)) %>%
+  hc_title(text = " ") |>
+  hc_xAxis(title = list(text = "")) |>
+  hc_yAxis(title = list(text = "")) |>
+  hc_add_theme(hc_theme_538())
+line_2022
+```
