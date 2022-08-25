@@ -1,0 +1,525 @@
+---
+title: "تقرير يوضح شهداء الثورة فى السودان فى الفترة من 2021 - 2022"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+date: '2022-07-24'
+author:
+  - name: "Murtada Khalafalla"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load('dplyr', 'tidyr', 'tidyverse','ggplot2','ggalt','forcats', 'R.utils', 'png', 'grid',
+               'ggpubr','bbplot','readxl',  'finalfit','DT','plotly',
+               'lubridate',    # general package for handling and converting dates  
+               'rio',          # File import
+               'skimr',        # get overview of data
+               'gtsummary',    # summary statistics and tests
+               'rstatix',      # summary statistics and statistical tests
+               'janitor',      # adding totals and percents to tables
+               'scales',       # easily convert proportions to percents  
+               'flextable',    # converting tables to pretty images
+               'gridExtra','patchwork','hrbrthemes')
+
+options(warn = - 1)
+```
+
+```{r echo=FALSE}
+sud_rev <- import("C:/Users/kfmurtada/Desktop/Sudanese_revelution/data/Sudanese_rev.xlsx")
+
+sud_rev <- sud_rev |> 
+  mutate(across(where(is.character), as.factor)) |>
+  janitor::clean_names() |> 
+  mutate(date = as.POSIXct(date_of_death, format = "%m/%d/%Y %H:%M:%S")) |> 
+  mutate(day_death =factor(day(date))) |> 
+  mutate(month_death = factor(month(date, label = TRUE))) |> 
+  mutate(year_death =factor(year(date))) |> 
+  mutate(week_death = factor(wday(date, label = TRUE))) |> 
+  select(name,gender,age,city,place_of_death,reason_of_death,
+         date_death=date,day_death,week_death,month_death,year_death)
+```
+
+```{r echo=FALSE}
+bbc_style <- function ()
+{
+    font <- "Helvetica"
+    ggplot2::theme(plot.title = ggplot2::element_text(family = font,
+        size = 15, face = "bold", color = "#222222"), plot.subtitle = ggplot2::element_text(family = font,
+        size = 10, margin = ggplot2::margin(9, 0, 9, 0)), plot.caption = ggplot2::element_blank(),
+        legend.position = "top", legend.text.align = 0, legend.background = ggplot2::element_blank(),
+        legend.title = ggplot2::element_blank(), legend.key = ggplot2::element_blank(),
+        legend.text = ggplot2::element_text(family = font, size = 10,
+            color = "#222222"), axis.title = ggplot2::element_blank(),
+        axis.text = ggplot2::element_text(family = font, size = 10,
+            color = "#222222"), axis.text.x = ggplot2::element_text(margin = ggplot2::margin(5,
+            b = 10)), axis.ticks = ggplot2::element_blank(),
+        axis.line = ggplot2::element_blank(), panel.grid.minor = ggplot2::element_blank(),
+        panel.grid.major.y = ggplot2::element_line(color = "#cbcbcb"),
+        panel.grid.major.x = ggplot2::element_blank(), panel.background = ggplot2::element_blank(),
+        strip.background = ggplot2::element_rect(fill = "white"),
+        strip.text = ggplot2::element_text(size = 10, hjust = 0))
+}
+```
+
+```{r echo=FALSE}
+#print (paste0("العدد الكلى للشهداء خلال الفترة من عام 2021 الى 2022  :" ,nrow(sud_rev)))
+```
+
+**العدد الكلى للشهداء خلال الفترة من عام 2021 الى 2022 هو 114 شهيد**
+
+```{r echo=FALSE}
+# ------------------------Gender---------------------------------
+# 1- The total distribution number of gender
+gender_df <- sud_rev  |> 
+  count(gender, sort = TRUE) |> 
+  dplyr::mutate(perc = scales::percent(n / sum(n), accuracy = .1, trim = FALSE))
+
+gender_bars_num <- ggplot(gender_df, aes(x = gender, y = n)) +
+  geom_bar(stat="identity", 
+           position="identity", fill="#1380A1") +
+  geom_hline(yintercept = 0, size = 1, colour="#333333") +
+  bbc_style() +
+  geom_text(aes(label=n , hjust=1, vjust= -.2), color="black")+
+  labs(title="العدد الكلى للشهداء حسب النوع والجنس",
+       subtitle = "فى الفترة من 2021 الى 2022")+
+  xlab("") + ylab("")
+
+gender_bars_perc<- ggplot(gender_df, aes(x = gender, y = n)) +
+  geom_bar(stat="identity", 
+           position="identity", 
+           fill="#1380A1") +
+  geom_hline(yintercept = 0, size = 1, colour="#333333") +
+ bbc_style() +
+  geom_text(aes(label=perc , hjust=1, vjust= -.2), color="black")+
+  labs(title="النسبة المئوية لعدد الشهداء حسب النوع والجنس",
+       subtitle = "فى الفترة من 2021 الى 2022")+
+  xlab("") + ylab("")
+  
+# 2- The distribution of the gender by age
+# gender age group
+gender_age_df<- sud_rev |> 
+  mutate(ageGrouped = cut(age, 
+                          breaks = c(0, 10, 20, 30, 40,50,60,70),
+                          labels = c("Under 10", "10-20", "20-30",
+                                     "30-40","40-50","50-60","60-70")))  |>
+  count(gender,ageGrouped)  
+
+gender_age_bars <- ggplot(gender_age_df, 
+                          aes(x = ageGrouped, 
+                              y = n, 
+                              fill = gender)) +
+  geom_bar(stat="identity", position="dodge") +
+  geom_hline(yintercept = 0, size = 1, colour="#333333") +
+  bbc_style() +
+  geom_text(aes(label=n , hjust=.9, vjust= -.2), color="black")+
+  scale_fill_manual(values = c("#FAAB18","#1380A1")) +
+  labs(title="مجموع الشهداء حسب الأعمار فى الجنسين",
+       subtitle = "2021-2022")+
+  xlab("") + ylab("")
+
+# Age number
+age_df <- sud_rev  |> 
+  mutate(ageGrouped = cut(age, 
+                          breaks = c(0, 10, 20, 30, 40,50,60,70),
+                          labels = c("Under 10", "10-20", "20-30", 
+                                     "30-40","40-50","50-60","60-70")))  |> 
+  count(ageGrouped, sort = TRUE) |> 
+  dplyr::mutate(perc = scales::percent(n / sum(n), accuracy = .1, trim = FALSE))
+
+
+plot_age_perc <- ggplot(data = age_df, 
+                        aes(x = ageGrouped, y = n,fill = ageGrouped)) +
+  geom_bar(stat = "identity",position = "dodge") +
+  bbc_style() +
+  geom_text(aes(label=perc , hjust=1, vjust= .1), color="black")+
+  scale_fill_viridis_d(direction = -1) +
+  geom_hline(yintercept = 0, size = 1, colour = "#333333") +
+  labs(title = " النسبة المئوية لعدد الوفيات حسب الأعمار",
+       subtitle = "فى الفترة من 2021 - 2022") +
+  #theme(axis.text.x = element_text(angle = 90))+
+  guides(fill = guide_legend(reverse = TRUE))+
+  xlab("")+ylab("")+theme(legend.position="none")
+
+plot_age_num <- ggplot(data = age_df, 
+                       aes(x = ageGrouped, y = n,fill = ageGrouped)) +
+  geom_bar(stat = "identity",position = "dodge") +
+  bbc_style() +
+  geom_text(aes(label=n , hjust=.9, vjust= -.2), color="white")+
+  scale_y_continuous(labels = scales::number) +
+  geom_text(aes(label=n , hjust=1, vjust= -.2), color="black")+
+  scale_fill_viridis_d(direction = -1) +
+  geom_hline(yintercept = 0, size = 1, colour = "#333333") +
+  labs(title = " المجموع الكلى لعدد الوفيات حسب الأعمار",
+       subtitle = "فى الفترة من 2021 - 2022") +
+  guides(fill = guide_legend(reverse = TRUE))+
+  xlab("")+ylab("")+theme(legend.position="none")
+
+# 3- The distribution of the gender by city
+gender_city_df <- sud_rev %>% 
+  count(city,gender,sort = T)
+
+plot_gender_city <- ggplot(data = gender_city_df, 
+                           aes(x = city, y = n,fill = gender)) +
+  geom_bar(stat = "identity",position = "dodge") +
+  bbc_style() +
+  geom_text(aes(label=n , hjust=.9, vjust= -.2), color="black")+
+  scale_y_continuous(labels = scales::number) +
+  scale_fill_viridis_d(direction = -1) +
+  geom_hline(yintercept = 0, size = 1, colour = "#333333") +
+  labs(title = "الشهداء حسب المدينة",
+       subtitle = "فى الفترة من 2021 - 2022") +
+  theme(legend.position = "top",
+        legend.justification = "left") +
+  guides(fill = guide_legend(reverse = TRUE))+
+  xlab("")+ylab("")
+
+# #--------------------------City--------------------------------------------
+# # 1- The distribution total death by city
+city_df <- sud_rev  |>
+  count(city, sort = TRUE) |>
+  dplyr::mutate(perc = scales::percent(n / sum(n), accuracy = .1, trim = FALSE))
+
+# 2- Pie chart by city
+pie_city <- city_df %>% 
+  plot_ly(labels = ~city, 
+          values = ~n, 
+          type = 'pie',
+          textposition = 'inside',
+          textinfo = 'label+percent',
+          insidetextfont = list(color = '#FFFFFF'),
+          hoverinfo = 'text',
+          text = ~ paste(city, "<br /><br />",
+                         "Total death: ", n, sep = "")) %>%
+  layout(title = "عدد الوفيات حسب المدينة")
+
+# 2- tree chart by city
+tree_city_df <- sud_rev %>% 
+  count(city, sort = TRUE) %>%
+  mutate(parents = "النسبة المئوية للاستشهاد حسب المدينة") %>%
+  ungroup() 
+
+tree_city <- plot_ly(data = tree_city_df,
+                     type= "treemap",
+                     values = ~ n,
+                     labels= ~ city,
+                     parents=  ~ parents,
+                     domain = list(column=0),
+                     name = "Total death",
+                     textinfo="label+value+percent parent")
+
+# 4- The distribution of the gender by place of death
+gender_place_df <- sud_rev %>% 
+  count(gender,place_of_death,sort = T)
+
+plot_gender_place <- ggplot(data = gender_place_df, 
+                            aes(x = place_of_death, y = n,fill = gender)) +
+  geom_bar(stat = "identity",position = "dodge") +
+  bbc_style() +
+  geom_text(aes(label=n , hjust=2, vjust= -.1), color="white")+
+  scale_y_continuous(labels = scales::number) +
+  scale_fill_viridis_d(direction = -1) +
+  geom_hline(yintercept = 0, size = 1, colour = "#333333") +
+  labs(title = "الشهداء حسب المناطق",
+       subtitle = "فى الفترة من 2021 - 2022") +
+  theme(legend.position = "top",
+        legend.justification = "center") +
+  guides(fill = guide_legend(reverse = TRUE))+
+  xlab("")+ylab("")+coord_flip()
+
+
+
+# 2- The distribution of the age by city
+age_city_df <- sud_rev %>% 
+  mutate(ageGrouped = cut(age, 
+                          breaks = c(0, 10, 20, 30, 40,50,60,70),
+                          labels = c("Under 10", "10-20", "20-30", "30-40","40-50","50-60","60-70")))  |> 
+  rename(Age=ageGrouped) |> 
+  count(city,Age,sort = T)
+
+age_city_df$Age = factor(age_city_df$Age, levels = rev(levels(age_city_df$Age)))
+
+plot_age_city <- ggplot(data = age_city_df, 
+                        aes(x = city,y = n,fill = Age)) +
+  geom_bar(stat = "identity",position = "fill") +
+  bbc_style() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_viridis_d(direction = -1) +
+  geom_hline(yintercept = 0, size = 1, colour = "#333333") +
+  labs(title = "توزيع الأعمار فى كل مدينة ",
+       subtitle = "% of age martyrs by city , 2021-2022") +
+  theme(legend.position = "top",
+        legend.justification = "left") +
+  guides(fill = guide_legend(reverse = TRUE))+
+  xlab("")+ylab("")
+
+#- 3- Age by place
+age_place_df <- sud_rev %>% 
+  mutate(ageGrouped = cut(age, 
+                          breaks = c(0, 10, 20, 30, 40,50,60,70),
+                          labels = c("Under 10", "10-20", "20-30", 
+                                     "30-40","40-50","50-60","60-70")))  |>
+  rename(Age=ageGrouped) |> 
+  count(place_of_death,Age,sort = T)
+
+age_place_df$Age = factor(age_place_df$Age, levels = rev(levels(age_place_df$Age)))
+
+plot_age_place <- ggplot(data = age_place_df, 
+                         aes(x = place_of_death, y = n,fill = Age)) +
+  geom_bar(stat = "identity",position = "fill") +
+  bbc_style() +
+  scale_y_continuous(labels = c(10, 20, 30, 40, 50)) +
+  scale_fill_viridis_d(direction = -1) +
+  geom_hline(yintercept = 0, size = 1, colour = "#333333") +
+  labs(title = "توزيع ألأعمار فى كل المناطق",
+       subtitle = "") +
+  theme(legend.position = "top",
+        legend.justification = "left") +
+  guides(fill = guide_legend(reverse = TRUE))+
+  xlab("")+ylab("")+coord_flip()
+
+#--------------------------Reason_of_death-------------------------------
+# 1- Total Reason_of_death 
+reason_of_death_df <- sud_rev |> 
+  count(reason_of_death,sort=TRUE) |> 
+  mutate(reason_of_death = factor(reason_of_death, levels = reason_of_death))
+
+bar_reason_of_death <- plot_ly(reason_of_death_df,y = ~ reason_of_death, 
+                               x = ~ n, 
+                               orientation = 'h',
+                               text =  ~ n,
+                               textposition = 'auto',
+                               type = "bar", 
+                               name = "Active",
+                               marker = list(color = "#1f77b4")) %>%
+  layout(title = "العدد الكلى لاسباب الأستشهاد",
+         barmode = 'stack',
+         yaxis = list(title = ""),
+         xaxis = list(title = ""),
+         hovermode = "compare",
+         legend = list(x = 0.65, y = 0.9),
+         margin =  list(
+           l = 20, r = 10, b = 10,t = 30,  pad = 2)) 
+
+# 2- tree chart by of place of death
+tree_place_of_death_df <- sud_rev %>% 
+  count(place_of_death, sort = TRUE) %>%
+  mutate(parents = "الأستشهاد حسب المنطقة") %>%
+  ungroup() 
+
+tree_place_of_death <- plot_ly(data = tree_place_of_death_df,
+                               type= "treemap",
+                               values = ~ n,
+                               labels= ~ place_of_death,
+                               parents=  ~ parents,
+                               domain = list(column=0),
+                               name = "Total death",
+                               textinfo="label+value+percent parent")
+
+# ----------------------Death per Time-------------------------------------------
+# 1- month per year
+death_per_month_df <-  sud_rev |> 
+  count(month_death,year_death, sort = T)
+
+# by All years and months
+bar_death_per_all_year_month<-  death_per_month_df |>
+  mutate(month = forcats::fct_rev(forcats::fct_inorder(month_death))) |> 
+  ggplot(aes(x = month_death, y=n, fill= month_death)) +
+  geom_col() +
+  bbc_style() +
+  geom_text(aes(label = n,hjust=0.5, vjust=.9), color="white") +
+  labs(title = "")+
+  xlab("") + ylab("Frequency")+
+  theme(legend.position = "nonw" )+
+  ggtitle("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  labs(title = "مجموع الوفيات فى الفترة من 2021 - 2022")+ theme_bw()
+
+
+# by divided month and year 2021 and 2022
+bar_death_per_month<-  death_per_month_df |>
+  mutate(month = forcats::fct_rev(forcats::fct_inorder(month_death))) |> 
+  ggplot(aes(x = month_death, y=n , fill = month_death)) +
+  geom_col() +
+  geom_text(aes(label = n,hjust=0.5, vjust=.9), color="white") +
+  labs(title = "")+
+  xlab("") + ylab("Frequency")+
+  theme(legend.position = "nonw" )+
+  ggtitle("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  facet_wrap(~year_death, ncol=1)+
+  labs(title = "مجموع الوفيات فى كل سنة على حدة")+theme_bw()
+
+#2- death per weeks
+death_per_weeks_df <-  sud_rev |> 
+  count(week_death,month_death,year_death, sort = T)
+
+# # Year 2021
+bar_death_per_week2021<-  death_per_weeks_df |>
+  filter(year_death==2021) |> 
+  #mutate(week = forcats::fct_rev(forcats::fct_inorder(week_death))) |> 
+  ggplot(aes(x = week_death, y=n , fill = week_death)) +
+  geom_col() +
+  geom_text(aes(label = n,hjust=0.5, vjust=.9), color="white") +
+  labs(title = "")+
+  xlab("") + ylab("")+
+  theme(legend.position = "nonw" )+
+  ggtitle("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  facet_wrap(~month_death, ncol = 2)+
+  labs(title = "مجموع الوفيات بالشهور لسنة 2021")+theme_bw()
+
+# Year 2022
+bar_death_per_week2022<-  death_per_weeks_df |>
+  filter(year_death==2022) |> 
+  #mutate(week = forcats::fct_rev(forcats::fct_inorder(week_death))) |> 
+  ggplot(aes(x = week_death, y=n , fill = week_death)) +
+  geom_col() +
+  geom_text(aes(label = n,hjust=0.5, vjust=.9), color="white") +
+  labs(title = "")+
+  xlab("") + ylab("")+
+  theme(legend.position = "nonw" )+
+  ggtitle("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  facet_wrap(~month_death, ncol = 2)+
+  labs(title = "مجموع الوفيات بالشهور لسنة 2022")+ theme_bw()
+
+#3- day per day
+death_per_day_df <-  sud_rev |> 
+  count(day_death,month_death , week_death,year_death, sort = T)
+
+# 2021
+bar_death_per_day_2021<-  death_per_day_df |>
+  filter(year_death==2021) |> 
+  #(day_death = forcats::fct_rev(forcats::fct_inorder(day_death))) |> 
+  ggplot(aes(x = day_death, y=n , fill=week_death)) +
+  geom_col() +
+  geom_text(aes(label = n,hjust=0.5, vjust=.9), color="white") +
+  labs(title = "")+
+  xlab("") + ylab("")+
+  theme(legend.position = "nonw" )+
+  ggtitle("")+
+  #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  facet_wrap(~month_death,ncol = 1)+ theme_bw()+
+  labs(title = "مجموع الوفيات بالايام لسنة 2021")+ theme_bw()
+
+#20222
+bar_death_per_day_2022<-  death_per_day_df |>
+  filter(year_death==2022) |> 
+  #(day_death = forcats::fct_rev(forcats::fct_inorder(day_death))) |> 
+  ggplot(aes(x = day_death, y=n , fill=week_death)) +
+  geom_col() +
+  geom_text(aes(label = n,hjust=0.5, vjust=.9), color="white") +
+  labs(title = "")+
+  xlab("") + ylab("")+
+  theme(legend.position = "nonw" )+
+  ggtitle("")+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  facet_wrap(~month_death,ncol = 2)+ 
+  labs(title = "مجموع الوفيات بالايام لسنة 2022")+ theme_bw()
+```
+
+```{r echo=FALSE}
+# Time series
+death_2021  <- sud_rev |> 
+  filter(year_death==2021) |> 
+  count(month_death)
+
+death_2022  <- sud_rev |> 
+  filter(year_death==2022) |> 
+  count(month_death)
+
+gg_2021 <- death_2021 |> 
+  ggplot(aes(x = month_death,
+             y = n,group = 1)) +
+  geom_line(size = 1.5,
+            color = "black") +
+  geom_point(size = 3,
+             color = "steelblue") +
+  labs(y = "Count",
+       x = "Month",
+       title = "Death time series by year 2021")
+   
+gg_2022 <- death_2022 |> 
+  ggplot(aes(x = month_death,
+             y = n,group = 1)) +
+  geom_line(size = 1.5,
+            color = "black") +
+  geom_point(size = 3,
+             color = "steelblue") +
+  labs(y = "Count",
+       x = "Month",
+       title = "Death time series by year 2022")
+
+```
+
+```{r echo=FALSE}
+death_2021  <- sud_rev |> 
+  filter(year_death==2021) |> 
+  count(month_death)
+
+death_2022  <- sud_rev |> 
+    filter(year_death==2022) |> 
+  count(month_death) 
+
+
+ggg_2021 <- plot_ly(data = death_2021,
+                    x = ~ month_death,
+                    y = ~ n,
+                    type = "scatter",
+                    mode = "line",
+                    name = "") %>%
+  add_lines(x = ~ month_death,
+            y = ~ n,
+            name = "")%>%
+  layout(title = "توزيع السلسلة الزمنية للوفيات خلال سنة 2021",
+         legend = list(orientation = 'h'),
+         yaxis = list(title = "Count"),
+         xaxis = list(title = ""),
+         margin = list(b = 60))
+
+ggg_2022 <- plot_ly(data = death_2022,
+        x = ~ month_death,
+        y = ~ n,
+        type = "scatter",
+        mode = "line",
+        name = "") %>%
+  add_lines(x = ~ month_death,
+            y = ~ n,
+            name = "") %>%
+  layout(title = "توزيع السلسلة الزمنية للوفيات خلال سنة 2022",
+         legend = list(orientation = 'h'),
+         yaxis = list(title = "Count"),
+         xaxis = list(title = ""),
+         margin = list(b = 60))
+
+
+```
+
+```{r echo=FALSE}
+gender_bars_num
+gender_bars_perc
+plot_age_num
+gender_age_bars
+# plot_age_perc
+# plot_age_city
+# plot_age_place
+# plot_gender_city
+# tree_city
+#pie_city
+#tree_place_of_death
+#plot_gender_place
+#bar_reason_of_death
+bar_death_per_all_year_month
+bar_death_per_month
+bar_death_per_week2021
+bar_death_per_week2022
+bar_death_per_day_2021
+bar_death_per_day_2022
+# ggg_2021
+# ggg_2022
+
+# gg_2021
+# gg_2022
+```
